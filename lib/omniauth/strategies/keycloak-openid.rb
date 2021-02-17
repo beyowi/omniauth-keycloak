@@ -81,14 +81,14 @@ module OmniAuth
 
             def build_access_token
                 verifier = request.params["code"]
-                client.auth_code.get_token(verifier, 
+                client.auth_code.get_token(verifier,
                     {:redirect_uri => callback_url.gsub(/\?.+\Z/, "")}
-                    .merge(token_params.to_hash(:symbolize_keys => true)), 
+                    .merge(token_params.to_hash(:symbolize_keys => true)),
                     deep_symbolize(options.auth_token_params))
             end
 
             uid{ raw_info['sub'] }
-        
+
             info do
             {
                 :name => raw_info['name'],
@@ -97,13 +97,13 @@ module OmniAuth
                 :last_name => raw_info['family_name']
             }
             end
-        
+
             extra do
             {
                 'raw_info' => raw_info
             }
             end
-        
+
             def raw_info
                 id_token_string = access_token.token
                 jwk = JSON::JWK.new(@cert)
@@ -111,7 +111,7 @@ module OmniAuth
                 id_token
             end
 
-            OmniAuth.config.add_camelization('keycloak_openid', 'KeycloakOpenId')
+            OmniAuth.config.add_camelization('keycloakopenid', 'KeycloakOpenId')
         end
     end
 end

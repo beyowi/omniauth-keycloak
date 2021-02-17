@@ -24,7 +24,7 @@ Here's a quick example, adding the middleware to a Rails app in `config/initiali
 
 ```ruby
 Rails.application.config.middleware.use OmniAuth::Builder do
-  provider :keycloak_openid, 'Example-Client', '19cca35f-dddd-473a-bdd5-03f00d61d884',
+  provider :keycloakopenid, 'Example-Client', '19cca35f-dddd-473a-bdd5-03f00d61d884',
     client_options: {site: 'https://example.keycloak-url.com', realm: 'example-realm'}
 end
 ```
@@ -41,9 +41,9 @@ class User < ApplicationRecord
 end
 
 # config/initializers/devise.rb
-config.omniauth :keycloak_openid, "Example-Client-Name", "example-secret-if-configured", client_options: { site: "https://example.keycloak-url.com", realm: "example-realm" }, :strategy_class => OmniAuth::Strategies::KeycloakOpenId
+config.omniauth :keycloakopenid, "Example-Client-Name", "example-secret-if-configured", client_options: { site: "https://example.keycloak-url.com", realm: "example-realm" }, :strategy_class => OmniAuth::Strategies::KeycloakOpenId
 
-# Below controller assumes callback route configuration following 
+# Below controller assumes callback route configuration following
 # in config/routes.rb
 Devise.setup do |config|
   # ...
