@@ -15,6 +15,11 @@ module OmniAuth
             attr_reader :token_url
             attr_reader :cert
 
+            args [:client_id, :client_secret, :site, :realm]
+            option :site, nil
+            option :realm, nil
+            option :client_options, {}
+
             def setup_phase
                 if @authorize_url.nil? || @token_url.nil?
                     prevent_site_option_mistake
