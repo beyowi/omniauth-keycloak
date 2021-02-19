@@ -1,7 +1,14 @@
 require 'spec_helper'
 
 RSpec.describe OmniAuth::Strategies::KeycloakOpenId do
-  body = '{"issuer": "http://localhost:8080/auth/realms/example-realm",
+  let(:request) { double('Request', params: {}, cookies: {}, env: {}) }
+  let(:app) do
+    lambda do
+      [200, {}, ['Hello.']]
+    end
+  end
+
+  let(:config_body) {'{"issuer": "http://localhost:8080/auth/realms/example-realm",
   "authorization_endpoint": "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/auth",
   "token_endpoint": "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/token",
   "token_introspection_endpoint": "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/token/introspect",
@@ -24,18 +31,33 @@ RSpec.describe OmniAuth::Strategies::KeycloakOpenId do
   "claims_parameter_supported": false,
   "scopes_supported": ["openid", "offline_access"],
   "request_parameter_supported": true,
-  "request_uri_parameter_supported": true}'
+  "request_uri_parameter_supported": true}'}
 
-  context 'client options' do
-    subject do
-      stub_request(:get, "http://localhost:8080/auth/realms/example-realm/.well-known/openid-configuration")
-        .to_return(status: 200, body: body, headers: {})
-      stub_request(:get, "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/certs")
-        .to_return(status: 404, body: "", headers: {})
-      OmniAuth::Strategies::KeycloakOpenId.new('keycloak-openid', 'Example-Client', 'b53c572b-9f3b-4e79-bf8b-f03c799ba6ec',
-        client_options: {site: 'http://localhost:8080/', realm: 'example-realm'})
+  let(:cert_body) {'{"keys": ["cert_key"]}'}
+
+  subject do
+    stub_request(:get, "http://localhost:8080/auth/realms/example-realm/.well-known/openid-configuration")
+    .to_return(status: @config_error || 200, body: config_body, headers: {})
+    stub_request(:get, "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/certs")
+    .to_return(status: @cert_error || 200, body: cert_body, headers: {})
+
+    @options = { client_options: { 'site' => @site || 'http://localhost:8080/', 'realm' => 'example-realm', 'raise_on_failure' => @raise_failure || false } }
+    OmniAuth::Strategies::KeycloakOpenId.new(app, 'Example-Client', 'secret', @options).tap do |strategy|
+      allow(strategy).to receive(:request) do
+        request
+      end
     end
-    
+  end
+
+  before(:all) do
+    OmniAuth.config.test_mode = true
+  end
+
+  after do
+    OmniAuth.config.test_mode = false
+  end
+
+  describe 'client_options' do
     it 'should have the correct keycloak token url' do
       subject.setup_phase
       expect(subject.token_url).to eq('/auth/realms/example-realm/protocol/openid-connect/token')
@@ -48,10 +70,13 @@ RSpec.describe OmniAuth::Strategies::KeycloakOpenId do
   end
 
   describe 'errors processing' do
+    before(:each) do
+      @raise_failure = true
+    end
+
     context 'when site contains /auth part' do
-      subject do
-        OmniAuth::Strategies::KeycloakOpenId.new('keycloak-openid', 'Example-Client', 'b53c572b-9f3b-4e79-bf8b-f03c799ba6ec',
-                                                 client_options: {site: 'http://localhost:8080/auth', realm: 'example-realm', raise_on_failure: true})
+      before(:each) do
+        @site = 'http://localhost:8080/auth'
       end
 
       it 'raises Configuration Error' do
@@ -60,35 +85,25 @@ RSpec.describe OmniAuth::Strategies::KeycloakOpenId do
       end
     end
 
-    context 'when raise_on_failure option is true' do
-      context 'when openid configuration endpoint returns error response' do
-        subject do
-          stub_request(:get, "http://localhost:8080/auth/realms/example-realm/.well-known/openid-configuration")
-            .to_return(status: 404, body: "", headers: {})
-          OmniAuth::Strategies::KeycloakOpenId.new('keycloak-openid', 'Example-Client', 'b53c572b-9f3b-4e79-bf8b-f03c799ba6ec',
-                                                   client_options: {site: 'http://localhost:8080', realm: 'example-realm', raise_on_failure: true})
-        end
-
-        it 'raises Integration Error' do
-          expect{ subject.setup_phase }
-            .to raise_error(OmniAuth::Strategies::KeycloakOpenId::IntegrationError)
-        end
+    context 'when openid configuration endpoint returns error response' do
+      before(:each) do
+        @config_error = 404
       end
 
-      context 'when certificates endpoint returns error response' do
-        subject do
-          stub_request(:get, "http://localhost:8080/auth/realms/example-realm/.well-known/openid-configuration")
-            .to_return(status: 200, body: body, headers: {})
-          stub_request(:get, "http://localhost:8080/auth/realms/example-realm/protocol/openid-connect/certs")
-            .to_return(status: 404, body: "", headers: {})
-          OmniAuth::Strategies::KeycloakOpenId.new('keycloak-openid', 'Example-Client', 'b53c572b-9f3b-4e79-bf8b-f03c799ba6ec',
-                                                   client_options: {site: 'http://localhost:8080', realm: 'example-realm', raise_on_failure: true})
-        end
+      it 'raises Integration Error' do
+        expect{ subject.setup_phase }
+          .to raise_error(OmniAuth::Strategies::KeycloakOpenId::IntegrationError)
+      end
+    end
 
-        it 'raises Integration Error' do
-          expect{ subject.setup_phase }
-            .to raise_error(OmniAuth::Strategies::KeycloakOpenId::IntegrationError)
-        end
+    context 'when certificates endpoint returns error response' do
+      before(:each) do
+        @cert_error = 404
+      end
+
+      it 'raises Integration Error' do
+        expect{ subject.setup_phase }
+          .to raise_error(OmniAuth::Strategies::KeycloakOpenId::IntegrationError)
       end
     end
   end
