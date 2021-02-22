@@ -64,6 +64,10 @@ module OmniAuth
                 end
             end
 
+            def request_phase
+                redirect client.auth_code.authorize_url({:redirect_uri => callback_url.gsub(/\?.+\Z/, "")}.merge(authorize_params))
+              end
+
             def prevent_site_option_mistake
               site = options.client_options[:site]
               return unless site =~ /\/auth$/
